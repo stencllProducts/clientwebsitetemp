@@ -1,0 +1,99 @@
+{
+  "name": "Booking",
+  "type": "object",
+  "properties": {
+    "client_name": {
+      "type": "string",
+      "description": "Full name of the client"
+    },
+    "client_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Client's email address"
+    },
+    "client_phone": {
+      "type": "string",
+      "description": "Client's phone number"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "game",
+        "practice",
+        "tournament",
+        "highlight_reel",
+        "recruiting_video",
+        "team_photo",
+        "other"
+      ],
+      "description": "Type of basketball videography service"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the event"
+    },
+    "event_time": {
+      "type": "string",
+      "description": "Time of the event"
+    },
+    "location": {
+      "type": "string",
+      "description": "Venue or location of the event"
+    },
+    "duration_hours": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 12,
+      "description": "Expected duration in hours"
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "premium",
+        "ultimate"
+      ],
+      "description": "Selected service package"
+    },
+    "total_amount": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total booking amount in USD"
+    },
+    "special_requests": {
+      "type": "string",
+      "description": "Any special requests or notes"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "partial",
+        "refunded"
+      ],
+      "default": "pending",
+      "description": "Payment status"
+    },
+    "booking_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Booking status"
+    }
+  },
+  "required": [
+    "client_name",
+    "client_email",
+    "client_phone",
+    "event_type",
+    "event_date",
+    "package_type"
+  ]
+}

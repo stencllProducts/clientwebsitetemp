@@ -1,6 +1,6 @@
 "use client";
-import Homepage from "../components/homepage";
+import PortfolioPage from "../components/portfolio/PortfolioPage.jsx";
 
 export default function Page() {
-  return <Homepage />;
+  return <PortfolioPage />;
 }
