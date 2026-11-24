@@ -1,219 +1,177 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Heart, Users, Sparkles, ArrowRight, Play, BookOpen, UserCheck } from "lucide-react";
-import { motion } from "framer-motion";
-import Link from "next/link";
+"use client";
 
-const impactStats = [
-  { number: "2,500", label: "Lives Impacted", icon: Heart },
-  { number: "150", label: "Therapy Sessions", icon: Users },
-  { number: "50", label: "Workshops Held", icon: BookOpen },
-  { number: "25", label: "Advocates Trained", icon: UserCheck }
-];
+import { useEffect, useRef, useState } from "react";
+import { BrandEditor, IdentityBoard } from "../components/brand-kit";
+import { makePackagingSvg, makePreviewImage, makePreviewVideo } from "./lib/local-studio.mjs";
 
-const testimonials = [
-  {
-    text: "Psybriety gave me hope when I had none. The therapy sessions helped me process my trauma and find my strength again.",
-    author: "Maria, 23",
-    role: "Program Participant"
-  },
-  {
-    text: "Through their workshops, I learned that healing isn't a destination—it's a journey we take together as a community.",
-    author: "Carlos, 19", 
-    role: "Peer Advocate"
-  }
+const steps = ["Brand", "Product", "Create", "Review", "Export"];
+const defaultDirections = [
+  { name: "Studio light", detail: "Clean & considered", color: "#d9d4c8" },
+  { name: "Soft shadows", detail: "Warm & natural", color: "#ad9d85" },
+  { name: "After hours", detail: "Moody & dramatic", color: "#383c35" },
 ];
+const initialBrand = { name: "SŌL FORM", category: "DAILY ESSENTIALS", tagline: "A little ritual, just for you.", voice: "Thoughtful, uncomplicated, and quietly confident.", audience: "People who find beauty in the everyday.", color: "#c5e1b5", ink: "#263c2d", palette: ["#c5e1b5", "#263c2d"], typography: "Georgia", logo: "" };
+
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function Icon({ name, size = 18 }) {
+  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+  const paths = {
+    grid: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
+    box: <><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></>,
+    spark: <><path d="m12 2 1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2Z"/><path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></>,
+    check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></>,
+    export: <><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></>,
+    arrow: <><path d="M4 12h16M15 7l5 5-5 5"/></>,
+    upload: <><path d="M12 16V4m-4 4 4-4 4 4"/><path d="M4 16v4h16v-4"/></>,
+    image: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 3-3 6 6"/></>,
+    video: <><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></>,
+  };
+  return <svg {...common}>{paths[name]}</svg>;
+}
+
+function Label({ children, hint }) { return <div className="label-row"><label>{children}</label>{hint && <span>{hint}</span>}</div>; }
 
 export default function Home() {
-  return (
-    <div className="relative overflow-hidden">
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-400/5 rounded-full blur-3xl animate-pulse delay-500"></div>
-        </div>
+  const [step, setStep] = useState(0);
+  const [brand, setBrand] = useState(initialBrand);
+  const [brandSource, setBrandSource] = useState("Starter kit");
+  const [scenes, setScenes] = useState(defaultDirections.map((item) => item.name));
+  const [selectedScenes, setSelectedScenes] = useState(defaultDirections.map((item) => item.name));
+  const [product, setProduct] = useState("Daily nourishment");
+  const [description, setDescription] = useState("A considered essential for a more intentional everyday.");
+  const [direction, setDirection] = useState(0);
+  const [format, setFormat] = useState("Image");
+  const [prompt, setPrompt] = useState("A premium product photograph with soft natural light, thoughtful shadows and tactile materials.");
+  const [photo, setPhoto] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [outputs, setOutputs] = useState([]);
+  const [selected, setSelected] = useState(0);
+  const [approved, setApproved] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const outputUrls = useRef(new Set());
+  const creating = useRef(false);
+  const directions = scenes.filter((scene) => selectedScenes.includes(scene)).map((name, index) => ({
+    name,
+    detail: defaultDirections.find((item) => item.name === name)?.detail || "Brand direction",
+    color: defaultDirections[index % defaultDirections.length].color,
+  }));
+  const svg = makePackagingSvg(brand, product);
+  const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  const activeOutput = outputs[selected];
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-              Healing
-              <span className="block bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
-                Communities
-              </span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
-              Making mental health care accessible and affordable for underserved communities. 
-              Together, we heal, grow, and thrive.
-            </p>
+  useEffect(() => {
+    if (!photo) { setPhotoUrl(""); return; }
+    const url = URL.createObjectURL(photo);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+  useEffect(() => {
+    const urls = outputUrls.current;
+    return () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls.clear(); };
+  }, []);
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link href="/donate">
-                <Button className="px-8 py-6 text-lg bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0 shadow-lg hover:shadow-teal-500/25 transition-all duration-300 transform hover:scale-105">
-                  <Heart className="w-5 h-5 mr-2" />
-                  Donate Now
-                </Button>
-              </Link>
-              
-              <Link href="/about">
-                <Button variant="outline" className="px-8 py-6 text-lg border-teal-400 text-teal-400 hover:bg-teal-400 hover:text-slate-900 transition-all duration-300">
-                  Learn More
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </div>
+  function addOutput(blob, name, type, source) {
+    const url = URL.createObjectURL(blob);
+    outputUrls.current.add(url);
+    setOutputs((current) => [...current, { blob, url, name, type, source }]);
+    setSelected(outputs.length);
+    setApproved(false);
+    setStep(3);
+  }
 
-            {/* Video placeholder */}
-            <div className="relative max-w-4xl mx-auto bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-teal-500/20">
-              <div className="aspect-video bg-gradient-to-br from-slate-800 to-slate-700 flex items-center justify-center">
-                <Button variant="ghost" className="text-white hover:text-teal-400 transition-colors">
-                  <Play className="w-16 h-16" />
-                </Button>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <p className="text-sm opacity-75">Our Story: Building Resilient Communities</p>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+  async function createPreview() {
+    if (creating.current) return;
+    creating.current = true;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const directionName = directions[direction]?.name || "Studio light";
+      const blob = format === "Video"
+        ? await makePreviewVideo(svg, photoUrl, brand, directionName)
+        : await makePreviewImage(svg, photoUrl, brand, directionName);
+      addOutput(blob, `packaging-preview-${outputs.length + 1}.${format === "Video" ? "webm" : "png"}`, format.toLowerCase(), "Local preview");
+    } catch (err) { setError(err.message); }
+    finally { creating.current = false; setBusy(false); }
+  }
 
-      {/* Impact Stats */}
-      <section className="py-20 bg-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Our Growing Impact
-            </h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Every number represents a life touched, a story transformed, and hope restored.
-            </p>
-          </motion.div>
+  function importCreative(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const imageTypes = ["image/png", "image/jpeg", "image/webp"];
+    const videoTypes = ["video/mp4", "video/webm"];
+    if (![...imageTypes, ...videoTypes].includes(file.type) || file.size > 60_000_000) {
+      setError("Choose a PNG, JPEG, WebP, MP4 or WebM file under 60 MB.");
+    } else {
+      setError("");
+      addOutput(file, file.name, imageTypes.includes(file.type) ? "image" : "video", "Imported file");
+    }
+    event.target.value = "";
+  }
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {impactStats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-              >
-                <Card className="bg-slate-800/80 border-teal-500/20 backdrop-blur-sm hover:bg-slate-800 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-teal-500/10">
-                  <CardContent className="p-8 text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <stat.icon className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-4xl font-bold text-white mb-2">{stat.number}</h3>
-                    <p className="text-gray-300 font-medium">{stat.label}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+  async function copyAiBrief() {
+    const brief = `${prompt}\n\nBrand: ${brand.name}\nProduct: ${product}\nDescription: ${description}\nDirection: ${directions[direction]?.name || "Studio light"}\nVoice: ${brand.voice}\nAudience: ${brand.audience}\nTagline: ${brand.tagline}\nTypography: ${brand.typography}\nPalette: ${brand.palette.join(", ")}${brand.brief ? `\n\nImported brand brief:\n${brand.brief}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(brief);
+      setError(""); setMessage("Brief copied. Paste it into Copilot chat, save the resulting image, then import it here.");
+    } catch { setError("Could not copy the brief. Check clipboard permissions and try again."); }
+  }
 
-      {/* Testimonials */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Stories of Transformation
-            </h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-              Real voices from our community sharing their journeys of healing and growth.
-            </p>
-          </motion.div>
+  function downloadPng() {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas"); canvas.width = 1000; canvas.height = 1200;
+      const context = canvas.getContext("2d");
+      if (!context) { setError("Could not render the packaging artwork."); return; }
+      context.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => { if (blob) saveBlob(blob, "form-packaging.png"); else setError("Could not export PNG."); }, "image/png");
+    };
+    image.onerror = () => setError("Could not render the packaging artwork.");
+    image.src = svgUrl;
+  }
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-              >
-                <Card className="bg-slate-800/80 border-teal-500/20 backdrop-blur-sm h-full">
-                  <CardContent className="p-8">
-                    <div className="flex items-start mb-6">
-                      <Sparkles className="w-6 h-6 text-teal-400 mr-3 mt-1 flex-shrink-0" />
-                      <blockquote className="text-lg text-gray-300 italic leading-relaxed">
-                        "{testimonial.text}"
-                      </blockquote>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full flex items-center justify-center mr-4">
-                        <Heart className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-white">{testimonial.author}</p>
-                        <p className="text-sm text-teal-400">{testimonial.role}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-20 bg-gradient-to-r from-teal-900/20 to-cyan-900/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Join Our Movement
-            </h2>
-            <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              Every action matters. Whether you donate, volunteer, or simply spread the word—you're 
-              helping build a world where mental health care is a right, not a privilege.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/donate">
-                <Button className="px-10 py-6 text-lg bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0 shadow-lg hover:shadow-teal-500/25 transition-all duration-300 transform hover:scale-105">
-                  <Heart className="w-5 h-5 mr-2" />
-                  Support Our Mission
-                </Button>
-              </Link>
-              
-              <Link href="/programs">
-                <Button variant="outline" className="px-10 py-6 text-lg border-teal-400 text-teal-400 hover:bg-teal-400 hover:text-slate-900 transition-all duration-300">
-                  Explore Programs
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+  const navIcons = ["grid", "box", "spark", "check", "export"];
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <div className="wordmark"><span className="mark">✳</span><div>form<span className="wordmark-dot">.</span><small>BRAND STUDIO</small></div></div>
+      <div className="sidebar-section">YOUR WORKSPACE <span>✳</span></div>
+      <nav aria-label="Studio workflow">{steps.map((item, index) => <button key={item} className={`nav-item ${step === index ? "active" : ""}`} onClick={() => setStep(index)} aria-current={step === index ? "step" : undefined}><Icon name={navIcons[index]}/><span>{item}</span><small>{String(index + 1).padStart(2, "0")}</small></button>)}</nav>
+      <div className="sidebar-bottom"><div className="sidebar-note"><span className="note-icon">✳</span><div><strong>Made for ideas.</strong><p>From first thought to final form.</p></div></div><div className="sidebar-foot"><span className="status-dot"/> YOUR CREATIVE SPACE <span>↗</span></div></div>
+    </aside>
+    <div className="workspace">
+      <header className="topbar"><div className="breadcrumbs">Workspace <span>/</span> <strong>{steps[step]}</strong></div><div className="top-actions"><span className="draft-badge"><span/> LOCAL WORKSPACE</span><div className="avatar">F</div></div></header>
+      <div className="mobile-nav">{steps.map((item, index) => <button key={item} onClick={() => setStep(index)} className={index === step ? "active" : ""}>{item}</button>)}</div>
+      <main className="content">
+        <div className="page-heading"><div><div className="eyebrow"><span className="green-dot"/> THE BRAND WORKSPACE <span className="eyebrow-line"/> {String(step + 1).padStart(2, "0")} / 05</div><h1>{["Let’s make your mark.", "The product, perfectly you.", "Bring your idea to life.", "The finishing touches.", "Ready for the world."][step]}</h1><p>{["A little strategy, a lot of personality. Start by shaping the world around your product.", "Introduce the product at the heart of your brand.", "Turn your direction into something you can see.", "Take a closer look at your creative before it goes out into the world.", "Your ideas, ready to take wherever you go."][step]}</p></div><div className="heading-stamp"><span>✳</span><div>GOOD IDEAS<br/>START HERE</div></div></div>
+        <div className="studio-grid">
+          <section className="editor-panel">
+            <div className="panel-title"><div><span className="section-index">0{step + 1} / {steps[step].toUpperCase()}</span><h2>{["Build your brand", "Your product", "Creative direction", "Review creative", "Export your work"][step]}</h2></div><span className="panel-symbol">✳</span></div>
+            {step === 0 && <BrandEditor brand={brand} setBrand={setBrand} source={brandSource} setSource={setBrandSource} scenes={scenes} setScenes={setScenes} selectedScenes={selectedScenes} setSelectedScenes={setSelectedScenes} fallbackScenes={defaultDirections.map((item) => item.name)} onScenesChange={() => setDirection(0)}/>}
+            {step === 1 && <><p className="panel-description">Tell us what you’re making. Optionally add a product reference to your local preview.</p><div className="fields"><div><Label>Product name</Label><input value={product} onChange={(event) => setProduct(event.target.value)} maxLength={40}/></div><div><Label>Product description</Label><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3}/></div><div><Label hint="PNG / JPG / WEBP">Product reference</Label><label className="upload-box"><Icon name="upload" size={22}/><strong>{photo ? photo.name : "Choose a product image"}</strong><span>{photo ? "Click to replace image" : "Optional reference image"}</span><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file && (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10_000_000)) setError("Choose a PNG, JPEG or WebP under 10 MB."); else { setPhoto(file || null); setError(""); } event.target.value = ""; }}/></label>{photo && <button className="text-button" onClick={() => setPhoto(null)}>Remove image</button>}</div><div className="info-box">✳ <span>The reference appears beside the artwork in local previews. It is not automatically applied to the packaging.</span></div></div></>}
+            {step === 2 && <><p className="panel-description">Create a local mockup or import an image made with Copilot.</p><div className="fields">
+              <div><Label>Scene direction</Label><div className="direction-grid">{directions.map((item, index) => <button key={item.name} className={`direction-card ${direction === index ? "selected" : ""}`} onClick={() => setDirection(index)}><span className={`direction-art art-${index % 3}`} style={{ backgroundColor: item.color }}><i/></span><strong>{item.name}</strong><small>{item.detail}</small></button>)}</div><p className="field-hint">The built-in backgrounds are shown for the three default directions; custom directions use the studio background.</p></div>
+              <div><Label>Local preview</Label><div className="segmented">{["Image", "Video"].map((item) => <button key={item} className={format === item ? "selected" : ""} onClick={() => setFormat(item)}><Icon name={item === "Image" ? "image" : "video"} size={16}/> {item}</button>)}</div><p className="field-hint">Locally rendered, not AI-generated. Video is a four-second WebM animation; keep this tab open while recording.</p></div>
+              <div className="settings"><h3>Optional: create with Copilot</h3><p>Copy your brief to Copilot chat, save its image, and import the file here. Copilot is separate from this app and may use AI credits. Imported media is not converted into SVG.</p><div className="label-row"><label htmlFor="creative-prompt">Creative prompt</label></div><textarea id="creative-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4}/><button type="button" className="file-button local-action" onClick={copyAiBrief}>Copy brief for Copilot</button><p className="field-hint">The copied text includes the full imported Markdown brief. Review it before sharing.</p><label className="file-button local-action">Import AI image or video<input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" disabled={busy} onChange={importCreative}/></label></div>
+            </div></>}
+            {step === 3 && <><p className="panel-description">A thoughtful final look makes all the difference.</p>{outputs.length ? <><div className="output-list">{outputs.map((item, index) => <button key={item.url} className={`output-item ${selected === index ? "selected" : ""}`} onClick={() => { setSelected(index); setApproved(false); setError(""); }}><span className="output-icon"><Icon name={item.type === "video" ? "video" : "image"}/></span><span><strong>{item.name}</strong><small>{item.type} · {item.source}</small></span><span>↗</span></button>)}</div><button className={`approve-button ${approved ? "approved" : ""}`} onClick={() => setApproved(!approved)}>{approved ? "✓ Approved for export" : "Approve this creative"}</button></> : <div className="empty-state"><Icon name="spark" size={26}/><strong>Nothing to review just yet.</strong><p>Create a local preview or import a creative first.</p><button className="text-button" onClick={() => setStep(2)}>Go to Create →</button></div>}</>}
+            {step === 4 && <><p className="panel-description">Take your brand with you. Download the editable vector or a ready-to-share image.</p><div className="export-card"><div className="export-icon"><Icon name="box"/></div><div><strong>Packaging artwork</strong><p>Original layout with your brand details</p></div><span>01</span></div><div className="export-actions"><button onClick={() => saveBlob(new Blob([svg], { type: "image/svg+xml" }), "form-packaging.svg")}>↓ &nbsp; Download SVG</button><button onClick={downloadPng}>↓ &nbsp; Download PNG</button></div><p className="field-hint">SVG text and shapes are editable. An uploaded logo is embedded as a raster image, not converted to vectors.</p>{outputs.length > 0 && <><div className="divider"/><Label>Creative outputs</Label>{outputs.map((item) => <div className="download-row" key={item.url}><div><strong>{item.name}</strong><small>{item.type} · {item.source}</small></div><button onClick={() => saveBlob(item.blob, item.name)}>Download ↓</button></div>)}</>}</>}
+            {error && <div role="alert" className="error">{error}</div>}
+            {message && <div role="status" className="job-status">{message}</div>}
+            <div className="editor-footer">{step > 0 && <button className="back-button" onClick={() => setStep(step - 1)}>← Back</button>}{step < 4 && <button className="primary-button" disabled={busy} onClick={() => step === 2 ? createPreview() : setStep(step + 1)}>{busy ? "Recording preview…" : step === 2 ? `Create local ${format.toLowerCase()}` : step === 3 ? "Continue to export" : `Continue to ${steps[step + 1]}`} <Icon name="arrow" size={17}/></button>}</div>
+          </section>
+          <section className="preview-panel" aria-label="Live preview"><div className="preview-header"><div><span className="preview-indicator"/> {step === 0 ? "BRAND PREVIEW" : step >= 3 && activeOutput ? "CREATIVE PREVIEW" : "PACKAGING PREVIEW"}</div><span>✳ &nbsp; YOUR IDEA, TAKING SHAPE</span></div><div className="preview-stage">
+            {step === 0 ? <IdentityBoard brand={brand}/> : step >= 3 && activeOutput ? <div className="generated-preview">{activeOutput.type === "video" ? <video src={activeOutput.url} controls playsInline onError={() => setError("This browser could not play the video. Download it from Export or try another browser.")}/> : <img src={activeOutput.url} alt={activeOutput.name} onError={() => setError("This browser could not display the imported image.")}/>}</div> : <div className="art-scene"><div className="scene-orbit orbit-one"/><div className="scene-orbit orbit-two"/><div className="scene-caption top-caption">A LITTLE SOMETHING<br/>MADE BY YOU <span>↗</span></div><div className="product-shadow"/><div className="product-mockup"><img src={svgUrl} alt="Live packaging artwork preview"/></div><div className="scene-caption bottom-caption">CONSIDERED BY NATURE.<br/>CREATED BY YOU.</div><div className="scene-number">01 — 05</div></div>}
+          </div><div className="preview-bottom"><div><span className="preview-mini">THE CURRENT VIEW</span><strong>{step >= 3 && activeOutput ? activeOutput.name : brand.name || "Your brand"} <span>↗</span></strong><p>{step >= 3 && activeOutput ? activeOutput.source : "Your brand, in its element."}</p></div><div className="preview-bottom-right"><span className="swatch" style={{ background: brand.color }}/><span className="swatch" style={{ background: brand.ink }}/><span className="swatch swatch-light"/><div>LIVE PREVIEW<br/><strong>MADE IN FORM.</strong></div></div></div></section>
+        </div><div className="workspace-footer"><span>FORM STUDIO © 2026</span><span>MADE FOR THE MAKING &nbsp; ✳</span></div>
+      </main>
     </div>
-  );
+  </div>;
 }

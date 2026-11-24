@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // The legacy JSX files in pages/ are template fragments, not routes.
+  pageExtensions: ["js", "ts", "tsx"],
 };
 
 export default nextConfig;

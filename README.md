@@ -1,43 +1,28 @@
-# New Project Template
+# Form Studio
 
-This is a clean template for a new Next.js project. Start building your app here!
+A packaging and brand workspace built with Next.js. Edit a brand and product, create local packaging images and animated video previews, and export packaging artwork as SVG or PNG. Optionally import images or videos created elsewhere.
 
-## Getting Started
-
-First, run the development server:
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. Brand edits, uploads, and results are held in memory and disappear when the page is reloaded; download your work before leaving.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Brand kits
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+On Brand, expand **Import brand** to extract a public website or upload a `.md` brand kit. Website extraction reads the HTML, up to two linked stylesheets, and an identified PNG, JPEG or WebP logo. It is heuristic: review the detected values, and enter anything missing. Sites requiring login, JavaScript rendering, IPv6-only access, nonstandard ports, or blocking automated requests may not import. Only public network destinations are allowed.
 
-## Learn More
+Markdown import recognizes a title or labeled brand name, category, tagline, tone of voice, target audience, typography, hex colors, a `Scene directions` list, and a PNG/JPEG/WebP logo embedded in the kit or referenced by an absolute public URL. Upload relative logo files separately on Brand. Download kit saves the current fields, palette, logo (when available), and selected scenes in a re-importable Markdown file. The identity board displays the imported logo and font name as references. The packaging SVG embeds a raster logo when available but does not embed the referenced font.
 
-To learn more about Next.js, take a look at the following resources:
+## Local previews and optional AI
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+On Create, choose Image or Video and select **Create local**. These previews are rendered in the browser without an AI service or subscription. Images are PNG; video is a four-second, 1280 × 720 WebM animation recorded in real time. Keep the tab open during recording. Video requires a browser supporting canvas capture and WebM MediaRecorder, such as a current Chromium browser. If a browser cannot play the result in Review, download it from Export and open it in a compatible player. A product reference appears beside the packaging, rather than being applied to its surface. Custom scene names use the default studio background.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+For optional AI images, copy the brief from Create into GitHub Copilot chat, save the resulting image, and import it into the studio. The copied text includes the entire imported Markdown brief; review it before sharing. Copilot image generation is separate from this app, subject to availability, and may use AI credits. The studio does not automatically call Copilot or generate AI video. Imported PNG, JPEG, WebP, MP4 and WebM files can be reviewed and downloaded unchanged.
 
-## Deploy on Vercel
+The SVG is an original editable packaging layout based on the entered brand details; any embedded logo remains a raster image. It is not a trace or vectorization of an uploaded product photo or imported AI image. Review AI-generated labels manually.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The `pages/` JSX files are unrelated legacy template fragments, so Next.js is configured to exclude `.jsx` route files. Components can still use `.jsx`.
