@@ -1,3 +1,10 @@
+# New Project Template
+
+This is a clean template for a new Next.js project. Start building your app here!
+
+## Getting Started
+
+First, run the development server:
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
