@@ -80,10 +80,10 @@ export default function Home() {
     return () => { urls.forEach((url) => URL.revokeObjectURL(url)); urls.clear(); };
   }, []);
 
-  function addOutput(blob, name, type, source) {
+  function addOutput(blob, name, type, source, artwork = "") {
     const url = URL.createObjectURL(blob);
     outputUrls.current.add(url);
-    setOutputs((current) => [...current, { blob, url, name, type, source }]);
+    setOutputs((current) => [...current, { blob, url, name, type, source, artwork }]);
     setSelected(outputs.length);
     setApproved(false);
     setStep(3);
@@ -98,7 +98,7 @@ export default function Home() {
       const blob = format === "Video"
         ? await makePreviewVideo(svg, photoUrl, brand, directionName)
         : await makePreviewImage(svg, photoUrl, brand, directionName);
-      addOutput(blob, `packaging-preview-${outputs.length + 1}.${format === "Video" ? "webm" : "png"}`, format.toLowerCase(), "Local preview");
+      addOutput(blob, `packaging-preview-${outputs.length + 1}.${format === "Video" ? "webm" : "png"}`, format.toLowerCase(), "Local preview", svg);
     } catch (err) { setError(err.message); }
     finally { creating.current = false; setBusy(false); }
   }
@@ -123,6 +123,52 @@ export default function Home() {
       await navigator.clipboard.writeText(brief);
       setError(""); setMessage("Brief copied. Paste it into Copilot chat, save the resulting image, then import it here.");
     } catch { setError("Could not copy the brief. Check clipboard permissions and try again."); }
+  }
+
+  async function isolateSelected() {
+    const item = outputs[selected];
+    if (!item || (!item.artwork && item.type !== "image") || creating.current) return;
+    creating.current = true;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const isolated = item.artwork || await (await import("./lib/isolate-graphic.mjs")).isolateImage(item.url);
+      const url = URL.createObjectURL(new Blob([isolated], { type: "image/svg+xml" }));
+      outputUrls.current.add(url);
+      if (item.vectorUrl) {
+        URL.revokeObjectURL(item.vectorUrl);
+        outputUrls.current.delete(item.vectorUrl);
+      }
+      setOutputs((current) => current.map((output) => output.url === item.url ? { ...output, vector: isolated, vectorUrl: url } : output));
+      setMessage("Graphic isolated. Review the result before downloading.");
+    } catch (err) {
+      setError(err.message || "Could not isolate this graphic.");
+    } finally {
+      creating.current = false; setBusy(false);
+    }
+  }
+
+  function downloadIsolated(item, format) {
+    const filename = `${item.name.replace(/\.[^.]+$/, "")}-isolated.${format}`;
+    if (format === "svg") {
+      saveBlob(new Blob([item.vector], { type: "image/svg+xml" }), filename);
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d");
+      if (!context) { setError("Could not render the isolated graphic."); return; }
+      if (format === "jpg") { context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height); }
+      context.drawImage(image, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) saveBlob(blob, filename);
+        else setError("Could not export the isolated graphic.");
+      }, format === "jpg" ? "image/jpeg" : "image/png", 0.92);
+    };
+    image.onerror = () => setError("Could not render the isolated graphic.");
+    image.src = item.vectorUrl;
   }
 
   function downloadPng() {
@@ -159,16 +205,20 @@ export default function Home() {
             {step === 2 && <><p className="panel-description">Create a local mockup or import an image made with Copilot.</p><div className="fields">
               <div><Label>Scene direction</Label><div className="direction-grid">{directions.map((item, index) => <button key={item.name} className={`direction-card ${direction === index ? "selected" : ""}`} onClick={() => setDirection(index)}><span className={`direction-art art-${index % 3}`} style={{ backgroundColor: item.color }}><i/></span><strong>{item.name}</strong><small>{item.detail}</small></button>)}</div><p className="field-hint">The built-in backgrounds are shown for the three default directions; custom directions use the studio background.</p></div>
               <div><Label>Local preview</Label><div className="segmented">{["Image", "Video"].map((item) => <button key={item} className={format === item ? "selected" : ""} onClick={() => setFormat(item)}><Icon name={item === "Image" ? "image" : "video"} size={16}/> {item}</button>)}</div><p className="field-hint">Locally rendered, not AI-generated. Video is a four-second WebM animation; keep this tab open while recording.</p></div>
-              <div className="settings"><h3>Optional: create with Copilot</h3><p>Copy your brief to Copilot chat, save its image, and import the file here. Copilot is separate from this app and may use AI credits. Imported media is not converted into SVG.</p><div className="label-row"><label htmlFor="creative-prompt">Creative prompt</label></div><textarea id="creative-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4}/><button type="button" className="file-button local-action" onClick={copyAiBrief}>Copy brief for Copilot</button><p className="field-hint">The copied text includes the full imported Markdown brief. Review it before sharing.</p><label className="file-button local-action">Import AI image or video<input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" disabled={busy} onChange={importCreative}/></label></div>
+              <div className="settings"><h3>Optional: create with Copilot</h3><p>Copy your brief to Copilot chat, save its image, and import the file here. Copilot is separate from this app and may use AI credits.</p><div className="label-row"><label htmlFor="creative-prompt">Creative prompt</label></div><textarea id="creative-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4}/><button type="button" className="file-button local-action" onClick={copyAiBrief}>Copy brief for Copilot</button><p className="field-hint">The copied text includes the full imported Markdown brief. Review it before sharing.</p><label className="file-button local-action">Import AI image or video<input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" disabled={busy} onChange={importCreative}/></label></div>
+              <div className="settings"><h3>Isolate a graphic</h3><p>Choose a creative to isolate and export. Local previews use their original packaging artwork; imported images are traced together as one graphic.</p>
+                {outputs.length > 0 ? <><div className="label-row"><label htmlFor="isolate-output">Creative</label></div><select id="isolate-output" value={selected} disabled={busy} onChange={(event) => { setSelected(Number(event.target.value)); setError(""); setMessage(""); }}>{outputs.map((item, index) => <option key={item.url} value={index}>{item.name}{!item.artwork && item.type === "video" ? " (video not supported)" : ""}</option>)}</select><button type="button" className="file-button local-action" disabled={busy || (!activeOutput?.artwork && activeOutput?.type !== "image")} onClick={isolateSelected}>{busy ? "Working…" : "Isolate graphic"}</button>{activeOutput?.vector && <><div className="export-actions">{["svg", "png", "jpg"].map((kind) => <button key={kind} type="button" onClick={() => downloadIsolated(activeOutput, kind)}>↓ {kind === "jpg" ? "JPEG" : kind.toUpperCase()}</button>)}</div><p className="field-hint">PNG and SVG can be transparent; JPEG uses white. Local artwork may contain a raster logo.</p></>}</> : <p>Create or import an image first, then return here to isolate it.</p>}
+                <p className="field-hint">Imported images work best with transparency or a plain, consistent background. Tracing simplifies colors and details; complex scenes and multiple objects may not isolate cleanly. Imported videos cannot be traced.</p>
+              </div>
             </div></>}
             {step === 3 && <><p className="panel-description">A thoughtful final look makes all the difference.</p>{outputs.length ? <><div className="output-list">{outputs.map((item, index) => <button key={item.url} className={`output-item ${selected === index ? "selected" : ""}`} onClick={() => { setSelected(index); setApproved(false); setError(""); }}><span className="output-icon"><Icon name={item.type === "video" ? "video" : "image"}/></span><span><strong>{item.name}</strong><small>{item.type} · {item.source}</small></span><span>↗</span></button>)}</div><button className={`approve-button ${approved ? "approved" : ""}`} onClick={() => setApproved(!approved)}>{approved ? "✓ Approved for export" : "Approve this creative"}</button></> : <div className="empty-state"><Icon name="spark" size={26}/><strong>Nothing to review just yet.</strong><p>Create a local preview or import a creative first.</p><button className="text-button" onClick={() => setStep(2)}>Go to Create →</button></div>}</>}
-            {step === 4 && <><p className="panel-description">Take your brand with you. Download the editable vector or a ready-to-share image.</p><div className="export-card"><div className="export-icon"><Icon name="box"/></div><div><strong>Packaging artwork</strong><p>Original layout with your brand details</p></div><span>01</span></div><div className="export-actions"><button onClick={() => saveBlob(new Blob([svg], { type: "image/svg+xml" }), "form-packaging.svg")}>↓ &nbsp; Download SVG</button><button onClick={downloadPng}>↓ &nbsp; Download PNG</button></div><p className="field-hint">SVG text and shapes are editable. An uploaded logo is embedded as a raster image, not converted to vectors.</p>{outputs.length > 0 && <><div className="divider"/><Label>Creative outputs</Label>{outputs.map((item) => <div className="download-row" key={item.url}><div><strong>{item.name}</strong><small>{item.type} · {item.source}</small></div><button onClick={() => saveBlob(item.blob, item.name)}>Download ↓</button></div>)}</>}</>}
+            {step === 4 && <><p className="panel-description">Take your brand with you. Download the editable vector or a ready-to-share image.</p><div className="export-card"><div className="export-icon"><Icon name="box"/></div><div><strong>Packaging artwork</strong><p>Original layout with your brand details</p></div><span>01</span></div><div className="export-actions"><button onClick={() => saveBlob(new Blob([svg], { type: "image/svg+xml" }), "form-packaging.svg")}>↓ &nbsp; Download SVG</button><button onClick={downloadPng}>↓ &nbsp; Download PNG</button></div><p className="field-hint">SVG text and shapes are editable. An uploaded logo is embedded as a raster image, not converted to vectors.</p>{outputs.length > 0 && <><div className="divider"/><Label>Creative outputs</Label>{outputs.map((item) => <div key={item.url}><div className="download-row"><div><strong>{item.name}</strong><small>{item.type} · {item.source}</small></div><button onClick={() => saveBlob(item.blob, item.name)}>Download ↓</button></div>{item.vector && <div className="export-actions">{["svg", "png", "jpg"].map((kind) => <button key={kind} onClick={() => downloadIsolated(item, kind)}>Isolated {kind === "jpg" ? "JPEG" : kind.toUpperCase()} ↓</button>)}</div>}</div>)}</>}</>}
             {error && <div role="alert" className="error">{error}</div>}
             {message && <div role="status" className="job-status">{message}</div>}
-            <div className="editor-footer">{step > 0 && <button className="back-button" onClick={() => setStep(step - 1)}>← Back</button>}{step < 4 && <button className="primary-button" disabled={busy} onClick={() => step === 2 ? createPreview() : setStep(step + 1)}>{busy ? "Recording preview…" : step === 2 ? `Create local ${format.toLowerCase()}` : step === 3 ? "Continue to export" : `Continue to ${steps[step + 1]}`} <Icon name="arrow" size={17}/></button>}</div>
+            <div className="editor-footer">{step > 0 && <button className="back-button" disabled={busy} onClick={() => setStep(step - 1)}>← Back</button>}{step < 4 && <button className="primary-button" disabled={busy} onClick={() => step === 2 ? createPreview() : setStep(step + 1)}>{busy ? "Working…" : step === 2 ? `Create local ${format.toLowerCase()}` : step === 3 ? "Continue to export" : `Continue to ${steps[step + 1]}`} <Icon name="arrow" size={17}/></button>}</div>
           </section>
-          <section className="preview-panel" aria-label="Live preview"><div className="preview-header"><div><span className="preview-indicator"/> {step === 0 ? "BRAND PREVIEW" : step >= 3 && activeOutput ? "CREATIVE PREVIEW" : "PACKAGING PREVIEW"}</div><span>✳ &nbsp; YOUR IDEA, TAKING SHAPE</span></div><div className="preview-stage">
-            {step === 0 ? <IdentityBoard brand={brand}/> : step >= 3 && activeOutput ? <div className="generated-preview">{activeOutput.type === "video" ? <video src={activeOutput.url} controls playsInline onError={() => setError("This browser could not play the video. Download it from Export or try another browser.")}/> : <img src={activeOutput.url} alt={activeOutput.name} onError={() => setError("This browser could not display the imported image.")}/>}</div> : <div className="art-scene"><div className="scene-orbit orbit-one"/><div className="scene-orbit orbit-two"/><div className="scene-caption top-caption">A LITTLE SOMETHING<br/>MADE BY YOU <span>↗</span></div><div className="product-shadow"/><div className="product-mockup"><img src={svgUrl} alt="Live packaging artwork preview"/></div><div className="scene-caption bottom-caption">CONSIDERED BY NATURE.<br/>CREATED BY YOU.</div><div className="scene-number">01 — 05</div></div>}
+          <section className="preview-panel" aria-label="Live preview"><div className="preview-header"><div><span className="preview-indicator"/> {step === 0 ? "BRAND PREVIEW" : step === 2 && activeOutput?.vectorUrl ? "ISOLATED GRAPHIC" : step >= 3 && activeOutput ? "CREATIVE PREVIEW" : "PACKAGING PREVIEW"}</div><span>✳ &nbsp; YOUR IDEA, TAKING SHAPE</span></div><div className="preview-stage">
+            {step === 0 ? <IdentityBoard brand={brand}/> : step === 2 && activeOutput?.vectorUrl ? <div className="generated-preview"><img src={activeOutput.vectorUrl} alt={`Isolated graphic from ${activeOutput.name}`} onError={() => setError("Could not display the isolated graphic.")}/></div> : step >= 3 && activeOutput ? <div className="generated-preview">{activeOutput.type === "video" ? <video src={activeOutput.url} controls playsInline onError={() => setError("This browser could not play the video. Download it from Export or try another browser.")}/> : <img src={activeOutput.url} alt={activeOutput.name} onError={() => setError("This browser could not display the imported image.")}/>}</div> : <div className="art-scene"><div className="scene-orbit orbit-one"/><div className="scene-orbit orbit-two"/><div className="scene-caption top-caption">A LITTLE SOMETHING<br/>MADE BY YOU <span>↗</span></div><div className="product-shadow"/><div className="product-mockup"><img src={svgUrl} alt="Live packaging artwork preview"/></div><div className="scene-caption bottom-caption">CONSIDERED BY NATURE.<br/>CREATED BY YOU.</div><div className="scene-number">01 — 05</div></div>}
           </div><div className="preview-bottom"><div><span className="preview-mini">THE CURRENT VIEW</span><strong>{step >= 3 && activeOutput ? activeOutput.name : brand.name || "Your brand"} <span>↗</span></strong><p>{step >= 3 && activeOutput ? activeOutput.source : "Your brand, in its element."}</p></div><div className="preview-bottom-right"><span className="swatch" style={{ background: brand.color }}/><span className="swatch" style={{ background: brand.ink }}/><span className="swatch swatch-light"/><div>LIVE PREVIEW<br/><strong>MADE IN FORM.</strong></div></div></div></section>
         </div><div className="workspace-footer"><span>FORM STUDIO © 2026</span><span>MADE FOR THE MAKING &nbsp; ✳</span></div>
       </main>
