@@ -27,3 +27,24 @@ button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity
 @media(max-width:430px){.identity-board{padding:17px;min-height:380px}.preview-stage:has(.identity-board){min-height:380px}.identity-details{gap:12px}.palette-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .local-action{position:relative;width:100%;margin-top:10px;font-size:11px;font-weight:700;text-align:center}.local-action input{display:block;position:absolute;width:1px;height:1px;opacity:0}.local-action:focus-within{outline:2px solid #64805c;outline-offset:2px}
 .settings select{width:100%;border:1px solid #e1e6dd;border-radius:4px;background:#fff;padding:11px;color:#344238}
+
+:root{--primary:#000}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.brand-upload:focus-within,.local-action:focus-within{outline:2px solid #333;outline-offset:2px}
+.sidebar,.mobile-nav{background:var(--primary);color:#fff}
+.sidebar-section,.sidebar-foot,.nav-item,.sidebar-note p{color:#aaa}
+.sidebar-foot{border-color:#444}
+.wordmark .mark,.wordmark-dot,.note-icon,.nav-item.active svg,.nav-item.active small{color:#fff}
+.nav-item small{color:#999}
+.nav-item.active,.sidebar-note,.mobile-nav button.active{background:#292929;color:#fff}
+.mobile-nav button{color:#bbb}
+.status-dot{background:#fff}
+.green-dot,.preview-indicator,.draft-badge span{background:var(--primary)}
+.primary-button,.approve-button.approved{background:var(--primary);color:#fff}
+.primary-button:hover{background:#333}
+.direction-card.selected{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.segmented button.selected,.scene-options button.selected{border-color:var(--primary);background:#eee;color:var(--primary)}
+.output-item.selected{border-color:var(--primary)}
+.text-button,.brand-import-content .brand-upload{color:var(--primary)}
+.info-box,.job-status,.brand-message,.approve-button{background:#f2f2f2;color:#333}
+.external-action{text-decoration:none}
+.external-action:focus-visible{outline:2px solid #333;outline-offset:2px}
