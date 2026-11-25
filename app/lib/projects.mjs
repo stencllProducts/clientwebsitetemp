@@ -1,4 +1,5 @@
 import { brandAssetPresets } from "./local-studio.mjs";
+import { productMockups } from "./product-mockups.mjs";
 
 const databaseName = "form-studio-projects";
 
@@ -63,7 +64,17 @@ export function validateWorkspace(workspace) {
     && (item.vector === undefined || typeof item.vector === "string"));
   const validScenes = Array.isArray(workspace?.scenes) && workspace.scenes.length > 0 && workspace.scenes.every((item) => typeof item === "string")
     && Array.isArray(workspace.selectedScenes) && workspace.selectedScenes.length > 0 && workspace.selectedScenes.every((item) => workspace.scenes.includes(item));
-  if (!validBrand || !validOutputs || !validScenes || !["brandSource", "product", "description", "prompt"].every((key) => typeof workspace[key] === "string")
+  const mockup = workspace?.mockup;
+  const selectedGraphic = typeof mockup?.graphicIndex === "string" && /^(0|[1-9]\d*)$/.test(mockup.graphicIndex) && validOutputs
+    ? workspace.outputs[Number(mockup.graphicIndex)] : null;
+  const validMockup = mockup === undefined || (mockup && productMockups.some((item) => item.id === mockup.product)
+    && ["illustrated", "photo"].includes(mockup.mode) && /^#[0-9a-f]{6}$/i.test(mockup.color)
+    && ["original", "isolated"].includes(mockup.graphicVersion)
+    && (mockup.graphicIndex === "" ? mockup.graphicVersion === "original" : selectedGraphic?.type === "image" && (mockup.graphicVersion !== "isolated" || Boolean(selectedGraphic.vector)))
+    && [mockup.x, mockup.y, mockup.size].every(Number.isFinite)
+    && mockup.x >= 0 && mockup.x <= 100 && mockup.y >= 0 && mockup.y <= 100 && mockup.size >= 8 && mockup.size <= 70
+    && (mockup.photo === null || (mockup.photo instanceof Blob && ["image/png", "image/jpeg", "image/webp"].includes(mockup.photo.type) && mockup.photo.size <= 10_000_000)));
+  if (!validBrand || !validOutputs || !validScenes || !validMockup || !["brandSource", "product", "description", "prompt"].every((key) => typeof workspace[key] === "string")
       || !["Image", "Video"].includes(workspace.format) || !brandAssetPresets.some((item) => item.id === workspace.assetPreset)
       || !Number.isInteger(workspace.direction) || workspace.direction < 0 || workspace.direction >= workspace.selectedScenes.length
       || !Number.isInteger(workspace.selected) || workspace.selected < 0 || (workspace.outputs.length > 0 && workspace.selected >= workspace.outputs.length)

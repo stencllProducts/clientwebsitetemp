@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrandEditor, IdentityBoard } from "../components/brand-kit";
+import ProductMockups from "../components/product-mockups";
 import { brandAssetPresets, makeBrandAssetSvg, makePackagingSvg, makePreviewImage, makePreviewVideo, renderSvgPng } from "./lib/local-studio.mjs";
+import { initialProductMockup } from "./lib/product-mockups.mjs";
 import { listProjects, loadProject, saveProject } from "./lib/projects.mjs";
 
 const steps = ["Brand", "Product", "Create", "Review", "Export"];
@@ -51,6 +53,7 @@ export default function Home() {
   const [direction, setDirection] = useState(0);
   const [format, setFormat] = useState("Image");
   const [assetPreset, setAssetPreset] = useState(brandAssetPresets[0].id);
+  const [mockup, setMockup] = useState(initialProductMockup);
   const [prompt, setPrompt] = useState("A premium product photograph with soft natural light, thoughtful shadows and tactile materials.");
   const [photo, setPhoto] = useState(null);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -131,6 +134,17 @@ export default function Home() {
     finally { creating.current = false; setBusy(false); }
   }
 
+  async function createProductMockup(artwork, preset) {
+    if (creating.current) return;
+    creating.current = true;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const blob = await renderSvgPng(artwork);
+      addOutput(blob, `${preset.id}-mockup-${outputs.length + 1}.png`, "image", `${preset.label} mockup`, artwork);
+    } catch (err) { setError(err.message || "Could not create the product mockup."); }
+    finally { creating.current = false; setBusy(false); }
+  }
+
   async function saveWorkspace(update) {
     if (creating.current) return;
     const name = projectName.trim();
@@ -141,7 +155,7 @@ export default function Home() {
     try {
       const id = update ? currentProjectId : crypto.randomUUID();
       const workspace = {
-        brand, brandSource, scenes, selectedScenes, product, description, direction, format, assetPreset, prompt, photo, selected, approved, step,
+        brand, brandSource, scenes, selectedScenes, product, description, direction, format, assetPreset, prompt, photo, selected, approved, step, mockup,
         outputs: outputs.map(({ blob, name: outputName, type, source, artwork, vector }) => ({ blob, name: outputName, type, source, artwork, vector })),
       };
       const saved = await saveProject(id, name, workspace);
@@ -171,6 +185,7 @@ export default function Home() {
       setBrand(workspace.brand); setBrandSource(workspace.brandSource); setScenes(workspace.scenes); setSelectedScenes(workspace.selectedScenes);
       setProduct(workspace.product); setDescription(workspace.description); setDirection(workspace.direction); setFormat(workspace.format);
       setAssetPreset(workspace.assetPreset); setPrompt(workspace.prompt); setPhoto(workspace.photo); setOutputs(restored);
+      setMockup(workspace.mockup || initialProductMockup());
       setSelected(workspace.selected); setApproved(workspace.approved); setStep(workspace.step);
       setProjectName(saved.name); setCurrentProjectId(saved.id);
       setError(""); setMessage("");
@@ -283,6 +298,7 @@ export default function Home() {
               <div><Label>Scene direction</Label><div className="direction-grid">{directions.map((item, index) => <button key={item.name} className={`direction-card ${direction === index ? "selected" : ""}`} onClick={() => setDirection(index)}><span className={`direction-art art-${index % 3}`} style={{ backgroundColor: item.color }}><i/></span><strong>{item.name}</strong><small>{item.detail}</small></button>)}</div><p className="field-hint">The built-in backgrounds are shown for the three default directions; custom directions use the studio background.</p></div>
               <div><Label>Local preview</Label><div className="segmented">{["Image", "Video"].map((item) => <button key={item} className={format === item ? "selected" : ""} onClick={() => setFormat(item)}><Icon name={item === "Image" ? "image" : "video"} size={16}/> {item}</button>)}</div><p className="field-hint">Locally rendered, not AI-generated. Video is a four-second WebM animation; keep this tab open while recording.</p></div>
               <div className="settings asset-workflow"><h3>Brand assets</h3><p>Create a social layout or illustrated mockup using your current brand and product. Choose a format and review the result.</p><div className="label-row"><span>Choose an asset</span></div><div className="brand-asset-grid">{brandAssetPresets.map((item) => <button key={item.id} type="button" className={`brand-asset-option ${assetPreset === item.id ? "selected" : ""}`} aria-pressed={assetPreset === item.id} disabled={busy} onClick={() => setAssetPreset(item.id)}><span className="asset-thumbnail" style={{ backgroundColor: brand.color, color: brand.ink }}><span>✳</span><i/></span><strong>{item.label}</strong><small>{item.width} × {item.height}</small></button>)}</div><button type="button" className="file-button local-action" disabled={busy} onClick={createBrandAsset}>Create brand asset</button><p className="field-hint">These are editable flat layouts, not AI-generated or photorealistic. The logo remains a raster image.</p></div>
+              <ProductMockups value={mockup} onChange={setMockup} outputs={outputs} busy={busy} onCreate={createProductMockup}/>
               <div className="settings"><h3>Optional: create with AI</h3><p>Copy your brief, paste it into Google AI Studio or Copilot, then save and import the resulting image. Generation happens outside this app.</p><div className="label-row"><label htmlFor="creative-prompt">Creative prompt</label></div><textarea id="creative-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} rows={4}/><button type="button" className="file-button local-action" onClick={copyAiBrief}>Copy creative brief</button><p className="field-hint">The copied text includes your brand and product details and the full imported Markdown brief. Review it before sharing; do not share sensitive information.</p><a className="file-button local-action external-action" href="https://aistudio.google.com?model=gemini-2.5-flash-image" target="_blank" rel="noopener noreferrer">Open Nano Banana in Google AI Studio ↗</a><a className="file-button local-action external-action" href="https://aistudio.google.com?model=gemini-nano-banana-2.1" target="_blank" rel="noopener noreferrer">Open Nano Banana 2.1 in Google AI Studio ↗</a><p className="field-hint">Google sign-in and model availability are subject to Google’s terms and limits. Free use in AI Studio is not guaranteed; check your account before generating. Copilot may use AI credits.</p><label className="file-button local-action">Import AI image or video<input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" disabled={busy} onChange={importCreative}/></label></div>
               <div className="settings"><h3>Isolate a graphic</h3><p>Choose a creative to isolate and export. Local packaging previews use their original artwork; local brand assets retain their complete editable layout. Imported images are traced together as one graphic.</p>
                 {outputs.length > 0 ? <><div className="label-row"><label htmlFor="isolate-output">Creative</label></div><select id="isolate-output" value={selected} disabled={busy} onChange={(event) => { setSelected(Number(event.target.value)); setError(""); setMessage(""); }}>{outputs.map((item, index) => <option key={item.url} value={index}>{item.name}{!item.artwork && item.type === "video" ? " (video not supported)" : ""}</option>)}</select><button type="button" className="file-button local-action" disabled={busy || (!activeOutput?.artwork && activeOutput?.type !== "image")} onClick={isolateSelected}>{busy ? "Working…" : "Isolate graphic"}</button>{activeOutput?.vector && <><div className="export-actions">{["svg", "png", "jpg"].map((kind) => <button key={kind} type="button" onClick={() => downloadIsolated(activeOutput, kind)}>↓ {kind === "jpg" ? "JPEG" : kind.toUpperCase()}</button>)}</div><p className="field-hint">PNG and SVG can be transparent; JPEG uses white. Local artwork may contain a raster logo.</p></>}</> : <p>Create or import an image first, then return here to isolate it.</p>}
