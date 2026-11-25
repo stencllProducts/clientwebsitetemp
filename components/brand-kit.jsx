@@ -2,6 +2,14 @@
 
 import { useState } from "react";
 import { brandMarkdown, parseBrandMarkdown } from "../app/lib/brand-kit.mjs";
+import { makeBrandBoardSvg, renderSvgPng } from "../app/lib/local-studio.mjs";
+
+function download(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export function BrandEditor({ brand, setBrand, source, setSource, scenes, setScenes, selectedScenes, setSelectedScenes, fallbackScenes, onScenesChange }) {
   const [expanded, setExpanded] = useState(false);
@@ -124,10 +132,30 @@ export function BrandEditor({ brand, setBrand, source, setSource, scenes, setSce
 
   function downloadKit() {
     const blob = new Blob([brandMarkdown(brand, selectedScenes)], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = "brand-kit.md"; link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    download(blob, "brand-kit.md");
+  }
+
+  async function downloadBoard(format) {
+    try {
+      const svg = makeBrandBoardSvg(brand);
+      const blob = format === "svg" ? new Blob([svg], { type: "image/svg+xml" }) : await renderSvgPng(svg);
+      download(blob, `brand-board.${format}`);
+      setError("");
+    } catch (err) { setError(err.message || "Could not export the brand board."); }
+  }
+
+  function changePalette(index, value) {
+    setBrand((current) => ({ ...current, palette: current.palette.map((entry, i) => i === index ? value : entry) }));
+  }
+
+  function addColor() {
+    setBrand((current) => {
+      const palette = [...current.palette];
+      if (!palette.length) palette.push(current.color);
+      if (palette.length < 2) palette.push(current.ink);
+      if (palette.length < 8) palette.push("#808080");
+      return { ...current, palette };
+    });
   }
 
   return <>
@@ -147,11 +175,12 @@ export function BrandEditor({ brand, setBrand, source, setSource, scenes, setSce
     </div>
     {error && <div className="error" role="alert">{error}</div>}
     {message && <div className="brand-message" role="status">{message}</div>}
-    <div className="active-brand"><span className="section-index">ACTIVE BRAND</span><h3>{brand.name || "Untitled brand"}</h3><p>{source}</p><button className="kit-download" onClick={downloadKit}>Download kit ↓</button></div>
+    <div className="active-brand"><span className="section-index">ACTIVE BRAND</span><h3>{brand.name || "Untitled brand"}</h3><p>{source}</p><div className="brand-downloads"><button className="kit-download" onClick={downloadKit}>Kit .md ↓</button><button className="kit-download" onClick={() => downloadBoard("svg")}>Board SVG ↓</button><button className="kit-download" onClick={() => downloadBoard("png")}>Board PNG ↓</button></div><p>Board typography is a reference; an uploaded logo remains raster.</p></div>
     <div className="brand-section"><h3>Brand identity</h3><p>Make the details your own.</p><div className="fields">
       <div><label className="brand-field-label" htmlFor="brand-name">Brand name</label><input id="brand-name" value={brand.name} onChange={(event) => changeField("name", event.target.value)} maxLength={100}/></div>
       <div><label className="brand-field-label" htmlFor="brand-category">Brand category</label><input id="brand-category" value={brand.category} onChange={(event) => changeField("category", event.target.value)} maxLength={100}/></div>
       <div className="field-pair"><div><label className="brand-field-label" htmlFor="brand-color">Brand color</label><div className="color-input"><input id="brand-color" type="color" value={brand.color} onChange={(event) => changeField("color", event.target.value)}/><span>{brand.color.toUpperCase()}</span></div></div><div><label className="brand-field-label" htmlFor="brand-ink">Ink color</label><div className="color-input"><input id="brand-ink" type="color" value={brand.ink} onChange={(event) => changeField("ink", event.target.value)}/><span>{brand.ink.toUpperCase()}</span></div></div></div>
+      <div><span className="brand-field-label">Additional palette colors</span><div className="palette-editor">{brand.palette.slice(2).map((value, offset) => <div className="palette-edit-row" key={offset}><label className="color-input"><input type="color" aria-label={`Palette color ${offset + 3}`} value={value} onChange={(event) => changePalette(offset + 2, event.target.value)}/><span>{value.toUpperCase()}</span></label><button type="button" className="text-button" aria-label={`Remove palette color ${offset + 3}`} onClick={() => setBrand((current) => ({ ...current, palette: current.palette.filter((_, index) => index !== offset + 2) }))}>Remove</button></div>)}</div><button type="button" className="text-button" onClick={addColor} disabled={brand.palette.length >= 8}>+ Add color</button><p className="field-hint">Up to eight colors, including brand and ink.</p></div>
       <div><label className="brand-field-label" htmlFor="brand-typography">Typography</label><input id="brand-typography" value={brand.typography} onChange={(event) => changeField("typography", event.target.value)} placeholder="Font family"/></div>
       <div><label className="brand-field-label" htmlFor="brand-logo">Brand logo</label><input id="brand-logo" type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadLogo}/><p className="field-hint">PNG, JPEG or WebP under 1 MB. Included as an image in local packaging artwork.</p></div>
     </div></div>

@@ -51,4 +51,29 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .info-box,.job-status,.brand-message,.approve-button{background:#f2f2f2;color:#333}
 .external-action{text-decoration:none}
 .external-action:focus-visible{outline:2px solid #333;outline-offset:2px}
+.project-library{margin:0 0 20px;border:1px solid #e1e1dc;background:#fff;border-radius:8px}
+.project-library summary{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;cursor:pointer;list-style:none}
+.project-library summary::-webkit-details-marker{display:none}
+.project-library summary:focus-visible{outline:2px solid #333;outline-offset:2px}
+.project-library summary strong,.project-library summary small{display:block}
+.project-library summary strong{font-size:13px;color:#111}
+.project-library summary small{margin-top:4px;color:#777;font-size:10px}
+.project-library-content{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 20px 20px}
+.project-library-content label{display:block;font-weight:700;font-size:11px;margin-bottom:8px}
+.project-library-content select{width:100%;border:1px solid #ddd;border-radius:4px;background:#fafafa;padding:11px;color:#222}
+.project-library-content p{font-size:10px;line-height:1.5;color:#777}
+.project-feedback{grid-column:1/-1;margin:0}
+.project-actions{display:flex;gap:8px}
+.project-actions button,.project-open{border:1px solid #ddd;background:#fff;color:#222;border-radius:4px;padding:10px;margin-top:8px;font-size:11px;font-weight:700}
+.project-actions button:first-child{background:#000;color:#fff;border-color:#000}
+.brand-downloads{display:flex;flex-wrap:wrap;gap:6px}
+.palette-editor{display:grid;gap:7px}.palette-edit-row{display:flex;align-items:center;gap:10px}.palette-edit-row .color-input{flex:1}
+.brand-asset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.brand-asset-option{min-width:0;padding:5px;border:1px solid #deded9;border-radius:5px;background:#fff;text-align:left;color:#222}
+.brand-asset-option.selected{border-color:#000;box-shadow:0 0 0 1px #000}
+.brand-asset-option strong,.brand-asset-option small{display:block;overflow-wrap:anywhere;padding:6px 2px 0;font-size:10px}
+.brand-asset-option small{padding:3px 2px 5px;color:#777;font-size:9px}
+.asset-thumbnail{height:62px;border-radius:3px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;overflow:hidden}
+.asset-thumbnail span{font-size:20px}.asset-thumbnail i{width:45%;height:2px;background:currentColor;opacity:.5}
+@media(max-width:600px){.project-library-content{grid-template-columns:1fr}.brand-asset-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
